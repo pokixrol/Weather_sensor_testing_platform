@@ -1,7 +1,7 @@
+#include <Adafruit_SHT4x.h>
+#include <Adafruit_BMP280.h>
 #include <Adafruit_TSL2561_U.h>
-
 #include <BH1750.h>
-
 #include <WiFiManager.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
@@ -14,6 +14,8 @@ Adafruit_BME680 bme688(&Wire);
 ArtronShop_SHT45 sht45(&Wire, 0x44);
 BH1750 bh1750;
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
+//Adafruit_SHT4x sht40;
+//Adafruit_BMP280 bmp280;
 
 String serverName = "api.thingspeak.com";
 String apiKey = "1M4TIMF8LJI5ASDY";
@@ -31,15 +33,15 @@ void wifiConnection() {
   }
 }
 
-void postData(float tbme688, float tsht45, float hbme688, float hsht45, float bh1750, float tsl2561) {
+void postData(float tbme688, float tsht45, float hbme688, float hsht45, float lbh1750, float ltsl2561) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     String serverPath = "http://" + serverName + "/update?api_key=1M4TIMF8LJI5ASDY&field1=" + tbme688
                         + "&field2=" + tsht45
                         + "&field3=" + hbme688
                         + "&field4=" + hsht45
-                        + "&field5=" + bh1750
-                        + "&field6=" + tsl2561;
+                        + "&field5=" + lbh1750
+                        + "&field6=" + ltsl2561;
 
     http.begin(serverPath.c_str());
     int httpResponseCode = http.GET();
@@ -87,12 +89,22 @@ void setup() {
     delay(1000);
   }
 
+  // if (!sht40.begin()) {
+  //   Serial.println("SHT40 not found !");
+  //   delay(1000);
+  // }
+
+  // if (!bmp280.begin()) {
+  //   Serial.println("BMP280 not found !");
+  //   delay(1000);
+  // }
+
   wifiConnection();
 }
 
 void loop() {
-  sensors_event_t tsl_event;
-  
+  sensors_event_t tsl_event/*, sht_tmp, sht_hum*/;
+
   if (bme688.performReading()) {
 
     Serial.print("BME 688:\tTemperature = ");
@@ -117,6 +129,25 @@ void loop() {
     Serial.println("SHT45 read error");
   }
   delay(1000);
+
+  // if (sht40.getEvent(&sht_tmp, &sht_hum)) {
+  //   Serial.println("SHT 40:");
+  //   Serial.print("SHT 40:\tTemperature = ");
+  //   Serial.print(sht_tmp.temperature);
+  //   Serial.println("\t °C\tHumidity = ");
+  //   Serial.print(sht_hum.relative_humidity);
+  //   Serial.print(" %");
+  //   Serial.println("");
+  // } else {
+  //   Serial.println("SHT40 read error");
+  // }
+  // delay(1000);
+
+  // Serial.print("BMP 280:\tTemperature = ");
+  // Serial.print(bmp280.readTemperature());
+  // Serial.print(" °C");
+  // Serial.println("");
+  // delay(1000);
 
   Serial.print("BH 1750:\tLight = ");
   Serial.print(bh1750.readLightLevel());
