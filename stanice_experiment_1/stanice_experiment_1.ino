@@ -24,7 +24,7 @@ void wifiConnection() {
   wm.setConfigPortalTimeout(180);
   bool res = wm.autoConnect("ESP", "suprtajneheslo");
   if (!res) {
-    Serial.println("Wifi se nepodařilo připojit");
+    Serial.println("Wifi se nepodařilo připojit. Restart ...");
     ESP.restart();
   } else {
     Serial.println("Wifi připojeno");
@@ -40,13 +40,14 @@ void postData(float tbme688, float tsht45, float hbme688, float hsht45, float bh
                         + "&field4=" + hsht45
                         + "&field5=" + bh1750
                         + "&field6=" + tsl2561;
+
     http.begin(serverPath.c_str());
     int httpResponseCode = http.GET();
+
     if (httpResponseCode > 0) {
       Serial.print("HTTP response:   ");
       Serial.println(httpResponseCode);
-      String payload = http.getString();
-      Serial.println(payload);
+      Serial.println(http.getString());
     } else {
       Serial.print("Error code:   ");
       Serial.println(httpResponseCode);
@@ -60,83 +61,81 @@ void postData(float tbme688, float tsht45, float hbme688, float hsht45, float bh
 void setup() {
   Serial.begin(115200);
   Wire.begin();
+
   if (!bme688.begin()) {
-    Serial.println("Could not find a valid BME680 sensor, check wiring!");
-    while (1)
-      ;
+    Serial.println("BME 688 not found !");
+  } else {
+    bme688.setTemperatureOversampling(BME680_OS_8X);
+    bme688.setHumidityOversampling(BME680_OS_2X);
+    bme688.setPressureOversampling(BME680_OS_4X);
+    bme688.setIIRFilterSize(BME680_FILTER_SIZE_3);
+    bme688.setGasHeater(320, 150);
   }
 
-  // Set up oversampling and filter initialization
-  bme688.setTemperatureOversampling(BME680_OS_8X);
-  bme688.setHumidityOversampling(BME680_OS_2X);
-  bme688.setPressureOversampling(BME680_OS_4X);
-  bme688.setIIRFilterSize(BME680_FILTER_SIZE_3);
-  bme688.setGasHeater(320, 150);
-
-  while (!sht45.begin()) {
-    Serial.println("SHT45 not found !");
+  if (!sht45.begin()) {
+    Serial.println("SHT 45 not found !");
     delay(1000);
   }
-  bh1750.begin();
 
-  while (!tsl2561.begin()) {
-    Serial.println("TSL2561 not found !");
+  if (!bh1750.begin()) {
+    Serial.println("BH 1750 not found !");
     delay(1000);
-   }
+  }
+
+  if (!tsl2561.begin()) {
+    Serial.println("TSL 2561 not found !");
+    delay(1000);
+  }
 
   wifiConnection();
-  sht45.measure();
-    sensors_event_t tsl_event;
-  tsl2561.getEvent(&tsl_event);
-  postData(bme688.readTemperature(), sht45.temperature(), bme688.readHumidity(), sht45.humidity(), bh1750.readLightLevel(),tsl_event.light);
 }
 
 void loop() {
-  if (!bme688.performReading()) {
-    Serial.println("Failed to perform reading :(");
-    return;
+  sensors_event_t tsl_event;
+  
+  if (bme688.performReading()) {
+
+    Serial.print("BME 688:\tTemperature = ");
+    Serial.print(bme688.temperature);
+    Serial.print(" °C\tHumidity = ");
+    Serial.print(bme688.humidity);
+    Serial.print(" %");
+    Serial.println("");
+  } else {
+    Serial.println("BME 688 read error");
   }
-  Serial.println("BME 688:");
-  Serial.print("Temperature = ");
-  Serial.print(bme688.temperature);
-  Serial.print(" *C\tHumidity = ");
-  Serial.print(bme688.humidity);
-  Serial.print(" %");
-  Serial.println("");
-  delay(5000);
+  delay(1000);
 
   if (sht45.measure()) {
-    Serial.println("SHT45:");
-    Serial.print("Temperature = ");
+    Serial.print("SHT 45:\t\tTemperature = ");
     Serial.print(sht45.temperature(), 1);
-    Serial.print(" *C\tHumidity = ");
+    Serial.print(" °C\tHumidity = ");
     Serial.print(sht45.humidity(), 1);
-    Serial.print(" %RH");
+    Serial.print(" %");
     Serial.println("");
   } else {
     Serial.println("SHT45 read error");
   }
-  delay(5000);
+  delay(1000);
 
-  Serial.println("BH 1750:");
-  Serial.print("Light = ");
+  Serial.print("BH 1750:\tLight = ");
   Serial.print(bh1750.readLightLevel());
   Serial.print(" lux");
   Serial.println("");
-  delay(5000);
+  delay(1000);
 
 
-    Serial.println("TSL 2561:");
- sensors_event_t tsl_event;
   tsl2561.getEvent(&tsl_event);
   if (tsl_event.light) {
-    Serial.print("Light = ");
+    Serial.print("TSL 2561:\tLight = ");
     Serial.print(tsl_event.light);
-    Serial.println(" lux");
-  Serial.println("");
+    Serial.print(" lux");
+    Serial.println("");
+  } else {
+    Serial.println("TSL 2561 read error");
   }
-  delay(5000);
+  delay(1000);
 
-  postData(bme688.temperature, sht45.temperature(), bme688.humidity, sht45.humidity(), bh1750.readLightLevel(),tsl_event.light);
+  postData(bme688.temperature, sht45.temperature(), bme688.humidity, sht45.humidity(), bh1750.readLightLevel(), tsl_event.light);
   delay(15000);
 }
