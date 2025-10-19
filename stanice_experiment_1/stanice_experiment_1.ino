@@ -2,9 +2,9 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_TSL2561_U.h>
 #include <BH1750.h>
-#include <WiFiManager.h>
-#include <HTTPClient.h>
-#include <WiFi.h>
+#include "m_wifi.h"
+#include "m_thingspeak.h"
+#include "secret.h"
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BME680.h"
@@ -16,49 +16,6 @@ BH1750 bh1750;
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
 //Adafruit_SHT4x sht40;
 //Adafruit_BMP280 bmp280;
-
-String serverName = "api.thingspeak.com";
-String apiKey = "1M4TIMF8LJI5ASDY";
-
-void wifiConnection() {
-  WiFi.mode(WIFI_STA);
-  WiFiManager wm;
-  wm.setConfigPortalTimeout(180);
-  bool res = wm.autoConnect("ESP", "suprtajneheslo");
-  if (!res) {
-    Serial.println("Wifi se nepodařilo připojit. Restart ...");
-    ESP.restart();
-  } else {
-    Serial.println("Wifi připojeno");
-  }
-}
-
-void postData(float tbme688, float tsht45, float hbme688, float hsht45, float lbh1750, float ltsl2561) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    String serverPath = "http://" + serverName + "/update?api_key=1M4TIMF8LJI5ASDY&field1=" + tbme688
-                        + "&field2=" + tsht45
-                        + "&field3=" + hbme688
-                        + "&field4=" + hsht45
-                        + "&field5=" + lbh1750
-                        + "&field6=" + ltsl2561;
-
-    http.begin(serverPath.c_str());
-    int httpResponseCode = http.GET();
-
-    if (httpResponseCode > 0) {
-      Serial.print("HTTP response:   ");
-      Serial.println(httpResponseCode);
-      Serial.println(http.getString());
-    } else {
-      Serial.print("Error code:   ");
-      Serial.println(httpResponseCode);
-    }
-    http.end();
-  } else {
-    Serial.println("WiFi odpojeno");
-  }
-}
 
 void setup() {
   Serial.begin(115200);
@@ -103,7 +60,7 @@ void setup() {
 }
 
 void loop() {
-  sensors_event_t tsl_event/*, sht_tmp, sht_hum*/;
+  sensors_event_t tsl_event /*, sht_tmp, sht_hum*/;
 
   if (bme688.performReading()) {
 
@@ -157,7 +114,7 @@ void loop() {
 
 
   tsl2561.getEvent(&tsl_event);
-  if (tsl_event.light) {
+  if (tsl_event.light >= 0) {
     Serial.print("TSL 2561:\tLight = ");
     Serial.print(tsl_event.light);
     Serial.print(" lux");
