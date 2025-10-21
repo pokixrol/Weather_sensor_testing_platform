@@ -26,7 +26,7 @@ Senosrs:
   - AS3935 - Lightning detector
 
 Other:
-  - BESP32-LPKit - Development board
+  - ESP32-LPKit - Development board
   - CH9102 - Programmer
 
 ## Sources
