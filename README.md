@@ -28,7 +28,5 @@ Senosrs:
 Other:
   - BESP32-LPKit - Development board
   - CH9102 - Programmer
-     ME688 - Temperature, humidity, air preassure, air quailty
-  - SHT45 - Temperature, humidityources
 
 ## Sources
