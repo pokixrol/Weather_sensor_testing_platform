@@ -30,3 +30,15 @@ Other:
   - CH9102 - Programmer
 
 ## Sources
+  - ESP32 prakticky: Od základních obvodů k pokročilým aplikacím, Malý Martin
+
+
+
+
+
+
+
+
+
+
+
