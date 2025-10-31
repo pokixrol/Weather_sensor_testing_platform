@@ -15,13 +15,13 @@ ArtronShop_SHT45 sht45(&Wire, 0x44);
 BH1750 bh1750;
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
 //Adafruit_SHT4x sht40;
-//Adafruit_BMP280 bmp280;
+Adafruit_BMP280 bmp280;
 
 void setup() {
   Serial.begin(115200);
   Wire.begin();
 
-  if (!bme688.begin()) {
+  if (!bme688.begin(0x76)) {
     Serial.println("BME 688 not found !");
   } else {
     bme688.setTemperatureOversampling(BME680_OS_8X);
@@ -51,10 +51,10 @@ void setup() {
   //   delay(1000);
   // }
 
-  // if (!bmp280.begin()) {
-  //   Serial.println("BMP280 not found !");
-  //   delay(1000);
-  // }
+  if (!bmp280.begin(0x77)) {
+    Serial.println("BMP280 not found !");
+    delay(1000);
+  }
 
   wifiConnection();
 }
@@ -100,11 +100,11 @@ void loop() {
   // }
   // delay(1000);
 
-  // Serial.print("BMP 280:\tTemperature = ");
-  // Serial.print(bmp280.readTemperature());
-  // Serial.print(" °C");
-  // Serial.println("");
-  // delay(1000);
+  Serial.print("BMP 280:\tTemperature = ");
+  Serial.print(bmp280.readTemperature());
+  Serial.print(" °C");
+  Serial.println("");
+  delay(1000);
 
   Serial.print("BH 1750:\tLight = ");
   Serial.print(bh1750.readLightLevel());
@@ -124,6 +124,6 @@ void loop() {
   }
   delay(1000);
 
-  postData(bme688.temperature, sht45.temperature(), bme688.humidity, sht45.humidity(), bh1750.readLightLevel(), tsl_event.light);
+  postData(bme688.temperature, sht45.temperature(), bme688.humidity, sht45.humidity(), bh1750.readLightLevel(), tsl_event.light,bmp280.readTemperature());
   delay(15000);
 }
