@@ -17,9 +17,10 @@ Original (CZ)
 
 ## Hardware
 Senosrs:
-  - BME688 - Temperature, humidity, air preassure, air quailty
+  - BME688 - Temperature, humidity, air preassure
+  - BMP280 - Temperature, air pressure
   - SHT45 - Temperature, humidity
-  - SHT40 + BMP280 - Temperature (SHT40), humidity (SHT40), temperature (BMP280), air pressure (BMP280)
+  - SHT40 - Temperature, humidity
   - BH1750 - Light intensity
   - TSL2561 - Light intensity
   - LTR390 - Ultra Violet light intenstiy
