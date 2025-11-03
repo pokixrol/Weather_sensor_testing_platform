@@ -8,18 +8,19 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BME680.h"
-#include <ArtronShop_SHT45.h>
 
 Adafruit_BME680 bme688(&Wire);
-ArtronShop_SHT45 sht45(&Wire, 0x44);
 BH1750 bh1750;
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
-//Adafruit_SHT4x sht40;
-Adafruit_BMP280 bmp280;
+Adafruit_SHT4x sht45 = Adafruit_SHT4x();
+Adafruit_SHT4x sht40 = Adafruit_SHT4x();
+Adafruit_BMP280 bmp280(&Wire1);
 
 void setup() {
   Serial.begin(115200);
+
   Wire.begin();
+  Wire1.begin(19, 18);
 
   if (!bme688.begin(0x76)) {
     Serial.println("BME 688 not found !");
@@ -31,7 +32,7 @@ void setup() {
     bme688.setGasHeater(320, 150);
   }
 
-  if (!sht45.begin()) {
+  if (!sht45.begin(&Wire)) {
     Serial.println("SHT 45 not found !");
     delay(1000);
   }
@@ -46,10 +47,10 @@ void setup() {
     delay(1000);
   }
 
-  // if (!sht40.begin()) {
-  //   Serial.println("SHT40 not found !");
-  //   delay(1000);
-  // }
+  if (!sht40.begin(&Wire1)) {
+    Serial.println("SHT40 not found !");
+    delay(1000);
+  }
 
   if (!bmp280.begin(0x77)) {
     Serial.println("BMP280 not found !");
@@ -60,7 +61,7 @@ void setup() {
 }
 
 void loop() {
-  sensors_event_t tsl_event /*, sht_tmp, sht_hum*/;
+  sensors_event_t l, h1, t1, h2, t2;
 
   if (bme688.performReading()) {
 
@@ -75,11 +76,11 @@ void loop() {
   }
   delay(1000);
 
-  if (sht45.measure()) {
+  if (sht45.getEvent(&h1, &t1)) {
     Serial.print("SHT 45:\t\tTemperature = ");
-    Serial.print(sht45.temperature(), 1);
+    Serial.print(t1.temperature);
     Serial.print(" °C\tHumidity = ");
-    Serial.print(sht45.humidity(), 1);
+    Serial.print(h2.relative_humidity);
     Serial.print(" %");
     Serial.println("");
   } else {
@@ -87,18 +88,17 @@ void loop() {
   }
   delay(1000);
 
-  // if (sht40.getEvent(&sht_tmp, &sht_hum)) {
-  //   Serial.println("SHT 40:");
-  //   Serial.print("SHT 40:\tTemperature = ");
-  //   Serial.print(sht_tmp.temperature);
-  //   Serial.println("\t °C\tHumidity = ");
-  //   Serial.print(sht_hum.relative_humidity);
-  //   Serial.print(" %");
-  //   Serial.println("");
-  // } else {
-  //   Serial.println("SHT40 read error");
-  // }
-  // delay(1000);
+  if (sht40.getEvent(&h2, &t2)) {
+    Serial.print("SHT 40:\t\tTemperature = ");
+    Serial.print(t2.temperature);
+    Serial.print(" °C\tHumidity = ");
+    Serial.print(h2.relative_humidity);
+    Serial.print(" %");
+    Serial.println("");
+  } else {
+    Serial.println("SHT40 read error");
+  }
+  delay(1000);
 
   Serial.print("BMP 280:\tTemperature = ");
   Serial.print(bmp280.readTemperature());
@@ -113,10 +113,10 @@ void loop() {
   delay(1000);
 
 
-  tsl2561.getEvent(&tsl_event);
-  if (tsl_event.light >= 0) {
+  tsl2561.getEvent(&l);
+  if (l.light >= 0) {
     Serial.print("TSL 2561:\tLight = ");
-    Serial.print(tsl_event.light);
+    Serial.print(l.light);
     Serial.print(" lux");
     Serial.println("");
   } else {
@@ -124,6 +124,6 @@ void loop() {
   }
   delay(1000);
 
-  postData(bme688.temperature, sht45.temperature(), bme688.humidity, sht45.humidity(), bh1750.readLightLevel(), tsl_event.light,bmp280.readTemperature());
+  postData(bme688.temperature, t1.temperature, bme688.humidity, h1.relative_humidity, bh1750.readLightLevel(), l.light, bmp280.readTemperature());
   delay(15000);
 }
