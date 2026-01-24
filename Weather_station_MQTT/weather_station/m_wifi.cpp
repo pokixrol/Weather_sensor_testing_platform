@@ -9,12 +9,12 @@ void wifiConnection() {
 
   wm.setConfigPortalTimeout(180);
   
-  bool res = wm.autoConnect("ESP", "suprtajneheslo");
+  bool res = wm.autoConnect("ESP", "suprsecretpassword");
   if (!res) {
-    Serial.println("Wifi se nepodařilo připojit. Restart ...");
+    Serial.println("Wifi failed to connect. Restart ...");
     ESP.restart();
   } else {
-    Serial.println("Wifi připojeno");
+    Serial.println("Wifi connected");
   }
   randomSeed(micros());
 }
