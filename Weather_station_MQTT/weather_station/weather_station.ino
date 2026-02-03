@@ -8,7 +8,6 @@
 #include <BH1750.h>
 #include "m_wifi.h"
 #include "m_mqtt.h"
-#include <PubSubClient.h>
 #include "secret.h"
 #include <Wire.h>
 
@@ -67,7 +66,9 @@ void setup() {
 void loop() {
 
   mqtt_loop();
- 
+
+  StaticJsonDocument<1024> doc;
+
   sensors_event_t l, h1, t1, h2, t2;
 
   if (bme688.performReading()) {
@@ -77,9 +78,10 @@ void loop() {
     Serial.print(bme688.humidity);
     Serial.print(" %");
     Serial.println("");
-    if (client.connected()) {
-     mqtt_send(bme688.temperature);
-    }
+    JsonObject bme = doc.createNestedObject("bme688");
+    bme["temperature"] = bme688.temperature;
+    bme["humidity"] = bme688.humidity;
+    bme["pressure"] = bme688.pressure / 100.0;
   } else {
     Serial.println("BME 688 read error");
   }
@@ -91,6 +93,9 @@ void loop() {
     Serial.print(h1.relative_humidity);
     Serial.print(" %");
     Serial.println("");
+    JsonObject sht = doc.createNestedObject("sht45");
+    sht["temperature"] = t1.temperature;
+    sht["humidity"] = h1.relative_humidity;
   } else {
     Serial.println("SHT45 read error");
   }
@@ -102,6 +107,9 @@ void loop() {
     Serial.print(h2.relative_humidity);
     Serial.print(" %");
     Serial.println("");
+    JsonObject sht = doc.createNestedObject("sht40");
+    sht["temperature"] = t2.temperature;
+    sht["humidity"] = h2.relative_humidity;
   } else {
     Serial.println("SHT40 read error");
   }
@@ -110,11 +118,16 @@ void loop() {
   Serial.print(bmp280.readTemperature());
   Serial.print(" °C");
   Serial.println("");
+  JsonObject bmp = doc.createNestedObject("bmp280");
+  bmp["temperature"] = bmp280.readTemperature();
+  bmp["pressure"] = bmp280.readPressure() / 100.0;
 
   Serial.print("BH 1750:\tLight = ");
   Serial.print(bh1750.readLightLevel());
   Serial.print(" lux");
   Serial.println("");
+  JsonObject bh = doc.createNestedObject("bh1750");
+  bh["lux"] = bh1750.readLightLevel();
 
   tsl2561.getEvent(&l);
   if (l.light >= 0) {
@@ -122,9 +135,15 @@ void loop() {
     Serial.print(l.light);
     Serial.print(" lux");
     Serial.println("");
+    JsonObject tsl = doc.createNestedObject("tsl2561");
+    tsl["lux"] = l.light;
   } else {
     Serial.println("TSL 2561 read error");
   }
   Serial.println("");
-  delay(1000);
+
+  if (client.connected()) {
+    mqtt_send(doc);
+  }
+  delay(2000);
 }

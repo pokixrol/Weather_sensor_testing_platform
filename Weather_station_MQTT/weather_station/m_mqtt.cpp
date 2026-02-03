@@ -43,13 +43,23 @@ void mqtt_loop() {
   }
 }
 
-void mqtt_send(float t) {
-  StaticJsonDocument<128> doc;
-  char payload[128];
+// void mqtt_send(float t) {
+//   StaticJsonDocument<512> doc;
+//   char payload[128];
 
-  doc["t"] = t;
+//   doc["t"] = t;
   
+//   serializeJson(doc, payload);
+
+//   client.publish(MQTT_TOPIC, payload);
+// }
+
+void mqtt_send(JsonDocument& doc) {
+  char payload[1024];
   serializeJson(doc, payload);
+
+  Serial.print("MQTT payload: ");
+  Serial.println(payload);
 
   client.publish(MQTT_TOPIC, payload);
 }
