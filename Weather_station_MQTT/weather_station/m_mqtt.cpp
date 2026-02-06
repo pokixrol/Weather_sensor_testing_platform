@@ -1,8 +1,8 @@
+#define MQTT_BUFFER_SIZE 1024
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
 #include "secret.h"
-#include "m_wifi.h"
 #include "m_mqtt.h"
 
 
@@ -29,6 +29,7 @@ bool mqtt_reconnect() {
 
 void mqtt_init() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.setBufferSize(MQTT_BUFFER_SIZE);
 }
 
 void mqtt_loop() {
@@ -43,23 +44,16 @@ void mqtt_loop() {
   }
 }
 
-// void mqtt_send(float t) {
-//   StaticJsonDocument<512> doc;
-//   char payload[128];
-
-//   doc["t"] = t;
-  
-//   serializeJson(doc, payload);
-
-//   client.publish(MQTT_TOPIC, payload);
-// }
-
 void mqtt_send(JsonDocument& doc) {
-  char payload[1024];
+  char payload[MQTT_BUFFER_SIZE];
   serializeJson(doc, payload);
 
   Serial.print("MQTT payload: ");
   Serial.println(payload);
 
-  client.publish(MQTT_TOPIC, payload);
+  if(client.publish(MQTT_TOPIC, payload)){
+      Serial.println("Publish OK");
+  } else {
+      Serial.println("Publish FAILED");
+  }
 }

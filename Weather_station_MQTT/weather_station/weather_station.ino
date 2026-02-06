@@ -1,4 +1,3 @@
-#include <WiFi.h>
 #include <Adafruit_SHT4x.h>
 #include <Adafruit_BMP280.h>
 #include "Adafruit_BME680.h"
