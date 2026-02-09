@@ -17,48 +17,27 @@ Adafruit_SHT4x sht45 = Adafruit_SHT4x();
 Adafruit_SHT4x sht40 = Adafruit_SHT4x();
 Adafruit_BMP280 bmp280(&Wire1);
 
+void check_sensor(bool result, const char* name)
+{
+  if (!result) {
+    Serial.println("%s not found !", name);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
   Wire.begin();
   Wire1.begin(19, 18);
 
-  if (!bme688.begin(0x76)) {
-    Serial.println("BME 688 not found !");
-  } else {
-    bme688.setTemperatureOversampling(BME680_OS_8X);
-    bme688.setHumidityOversampling(BME680_OS_2X);
-    bme688.setPressureOversampling(BME680_OS_4X);
-    bme688.setIIRFilterSize(BME680_FILTER_SIZE_3);
-    bme688.setGasHeater(320, 150);
-  }
+  check_sensor(bme688.begin(0x76), "BME 688");
+  check_sensor(sht45.begin(&Wire), "SHT 45");
+  check_sensor(bh1750.begin(), "BH 1750");
+  check_sensor(tsl2561.begin(), "TSL 2561");
+  check_sensor(sht40.begin(&Wire1), "SHT 40");
+  check_sensor(bmp280.begin(0x77), "BMP 280");
 
-  if (!sht45.begin(&Wire)) {
-    Serial.println("SHT 45 not found !");
-    delay(1000);
-  }
-
-  if (!bh1750.begin()) {
-    Serial.println("BH 1750 not found !");
-    delay(1000);
-  }
-
-  if (!tsl2561.begin()) {
-    Serial.println("TSL 2561 not found !");
-    delay(1000);
-  }
-
-  if (!sht40.begin(&Wire1)) {
-    Serial.println("SHT40 not found !");
-    delay(1000);
-  }
-
-  if (!bmp280.begin(0x77)) {
-    Serial.println("BMP280 not found !");
-    delay(1000);
-  }
-
-  wifiConnection();
+  wifi_connection();
   mqtt_init();
 }
 

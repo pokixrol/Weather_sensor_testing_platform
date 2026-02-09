@@ -1,1 +1,1 @@
-void wifiConnection();
+void wifi_connection();

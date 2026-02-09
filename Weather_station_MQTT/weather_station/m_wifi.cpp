@@ -2,7 +2,7 @@
 #include <WiFiManager.h>
 #include "m_wifi.h"
 
-void wifiConnection() {
+void wifi_connection() {
   WiFi.mode(WIFI_STA);
 
   WiFiManager wm;
