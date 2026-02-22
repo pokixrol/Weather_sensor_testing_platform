@@ -13,7 +13,7 @@
 #include <Wire.h>
 
 #define AS3935_ADDR 0x03
-#define INDOOR 0x12 
+#define INDOOR 0x12
 #define OUTDOOR 0x0E
 #define LIGHTNING_INT 0x08
 #define DISTURBER_INT 0x04
@@ -27,6 +27,15 @@ Adafruit_SHT4x sht40 = Adafruit_SHT4x();
 Adafruit_BMP280 bmp280(&Wire1);
 Adafruit_LTR390 ltr390 = Adafruit_LTR390();
 SparkFun_AS3935 as3935(AS3935_ADDR);
+
+unsigned long last = 0;
+const unsigned long interval = 2000;
+const int lightningPin = 4;
+volatile bool lightningFlag = false;
+
+void IRAM_ATTR lightningISR() {
+  lightningFlag = true;
+}
 
 float LTR390_Resolution(int resolution) {
   switch (resolution) {
@@ -75,23 +84,36 @@ void check_sensor(bool result, const char* name) {
 
 void setup() {
   Serial.begin(115200);
-  
-  pinMode(4, INPUT); 
-  
-  Wire.begin(21,22);
+
+  pinMode(lightningPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(lightningPin), lightningISR, RISING);
+
+  Wire.begin(21, 22);
   Wire1.begin(19, 18);
 
   while (!Serial) {}
   delay(200);
 
-  check_sensor(bme688.begin(0x76), "BME 688");
-  check_sensor(sht45.begin(&Wire), "SHT 45");
-  check_sensor(bh1750.begin(), "BH 1750");
-  check_sensor(tsl2561.begin(), "TSL 2561");
-  check_sensor(sht40.begin(&Wire1), "SHT 40");
-  check_sensor(bmp280.begin(0x77), "BMP 280");
-  check_sensor(ltr390.begin(), "LTR 390");
-  check_sensor(as3935.begin(), "AS 3935");
+  check_sensor(bme688.begin(0x76), "BME688");
+  check_sensor(sht45.begin(&Wire), "SHT45");
+  check_sensor(bh1750.begin(), "BH1750");
+  check_sensor(tsl2561.begin(), "TSL2561");
+  check_sensor(sht40.begin(&Wire1), "SHT40");
+  check_sensor(bmp280.begin(0x77), "BMP280");
+  check_sensor(ltr390.begin(), "LTR390");
+  check_sensor(as3935.begin(), "AS3935");
+
+  // as3935.setIndoorOutdoor(OUTDOOR);
+  // as3935.setNoiseLevel(2);        // 0–7
+  // as3935.watchdogThreshold(2);    // 0–10
+  // as3935.setSpikeRejection(2);    // 0–11
+  // as3935.maskDisturber(false);
+
+  as3935.setIndoorOutdoor(INDOOR);
+  as3935.setNoiseLevel(2);
+  as3935.watchdogThreshold(2);
+  as3935.spikeRejection(2);
+  as3935.maskDisturber(true);
 
   ltr390.setGain(LTR390_GAIN_3);
   ltr390.setResolution(LTR390_RESOLUTION_16BIT);
@@ -104,140 +126,133 @@ void loop() {
 
   mqtt_loop();
 
-  StaticJsonDocument<1024> doc;
+  if (lightningFlag) {
+  lightningFlag = false;
 
-  sensors_event_t l, h1, t1, h2, t2;
+  int interruptSource = as3935.readInterruptReg();
 
-  if (bme688.performReading()) {
-    Serial.print("BME 688:\tTemperature = ");
-    Serial.print(bme688.temperature);
-    Serial.print(" °C\tHumidity = ");
-    Serial.print(bme688.humidity);
-    Serial.print(" %\tPressure = ");
-    Serial.print(bme688.pressure/100);
+  if (interruptSource == LIGHTNING_INT) {
+
+    byte distance = as3935.distanceToStorm();
+    long energy = as3935.lightningEnergy();
+
+    Serial.print("Lightning:\tDistance = ");
+    Serial.print(distance);
+    Serial.print(" km\t\tEnergy = ");
+    Serial.println(energy);
+
+    StaticJsonDocument<256> lightningDoc;
+    lightningDoc["distance_km"] = distance;
+    lightningDoc["energy"] = energy;
+
+    mqtt_send(lightningDoc);
+  }
+}
+
+  if (millis() - last >= interval) {
+    last = millis();
+
+    StaticJsonDocument<768> doc;
+
+    sensors_event_t l, h1, t1, h2, t2;
+
+    if (bme688.performReading()) {
+      Serial.print("BME 688:\tTemperature = ");
+      Serial.print(bme688.temperature);
+      Serial.print(" °C\tHumidity = ");
+      Serial.print(bme688.humidity);
+      Serial.print(" %\tPressure = ");
+      Serial.print(bme688.pressure / 100);
+      Serial.print(" hPa");
+      Serial.println("");
+      JsonObject bme = doc.createNestedObject("bme688");
+      bme["temperature"] = bme688.temperature;
+      bme["humidity"] = bme688.humidity;
+      bme["pressure"] = bme688.pressure / 100.0;
+    } else {
+      Serial.println("BME 688 read error");
+    }
+
+    if (sht45.getEvent(&h1, &t1)) {
+      Serial.print("SHT 45:\t\tTemperature = ");
+      Serial.print(t1.temperature);
+      Serial.print(" °C\tHumidity = ");
+      Serial.print(h1.relative_humidity);
+      Serial.print(" %");
+      Serial.println("");
+      JsonObject sht = doc.createNestedObject("sht45");
+      sht["temperature"] = t1.temperature;
+      sht["humidity"] = h1.relative_humidity;
+    } else {
+      Serial.println("SHT45 read error");
+    }
+
+    if (sht40.getEvent(&h2, &t2)) {
+      Serial.print("SHT 40:\t\tTemperature = ");
+      Serial.print(t2.temperature);
+      Serial.print(" °C\tHumidity = ");
+      Serial.print(h2.relative_humidity);
+      Serial.print(" %");
+      Serial.println("");
+      JsonObject sht = doc.createNestedObject("sht40");
+      sht["temperature"] = t2.temperature;
+      sht["humidity"] = h2.relative_humidity;
+    } else {
+      Serial.println("SHT40 read error");
+    }
+
+    float bmp280_temp = bmp280.readTemperature();
+    float bmp280_pres = bmp280.readPressure() / 100;
+    Serial.print("BMP 280:\tTemperature = ");
+    Serial.print(bmp280_temp);
+    Serial.print(" °C\tPressure = ");
+    Serial.print(bmp280_pres);
     Serial.print(" hPa");
     Serial.println("");
-    JsonObject bme = doc.createNestedObject("bme688");
-    bme["temperature"] = bme688.temperature;
-    bme["humidity"] = bme688.humidity;
-    bme["pressure"] = bme688.pressure / 100.0;
-  } else {
-    Serial.println("BME 688 read error");
-  }
+    JsonObject bmp = doc.createNestedObject("bmp280");
+    bmp["temperature"] = bmp280_temp;
+    bmp["pressure"] = bmp280_pres;
 
-  if (sht45.getEvent(&h1, &t1)) {
-    Serial.print("SHT 45:\t\tTemperature = ");
-    Serial.print(t1.temperature);
-    Serial.print(" °C\tHumidity = ");
-    Serial.print(h1.relative_humidity);
-    Serial.print(" %");
-    Serial.println("");
-    JsonObject sht = doc.createNestedObject("sht45");
-    sht["temperature"] = t1.temperature;
-    sht["humidity"] = h1.relative_humidity;
-  } else {
-    Serial.println("SHT45 read error");
-  }
-
-  if (sht40.getEvent(&h2, &t2)) {
-    Serial.print("SHT 40:\t\tTemperature = ");
-    Serial.print(t2.temperature);
-    Serial.print(" °C\tHumidity = ");
-    Serial.print(h2.relative_humidity);
-    Serial.print(" %");
-    Serial.println("");
-    JsonObject sht = doc.createNestedObject("sht40");
-    sht["temperature"] = t2.temperature;
-    sht["humidity"] = h2.relative_humidity;
-  } else {
-    Serial.println("SHT40 read error");
-  }
-
-  Serial.print("BMP 280:\tTemperature = ");
-  Serial.print(bmp280.readTemperature());
-  Serial.print(" °C\tPressure = ");
-  Serial.print(bme688.readPressure()/100);
-  Serial.print(" hPa");
-  Serial.println("");
-  JsonObject bmp = doc.createNestedObject("bmp280");
-  bmp["temperature"] = bmp280.readTemperature();
-  bmp["pressure"] = bmp280.readPressure() / 100.0;
-
-  Serial.print("BH 1750:\tLight = ");
-  Serial.print(bh1750.readLightLevel());
-  Serial.print(" lux");
-  Serial.println("");
-  JsonObject bh = doc.createNestedObject("bh1750");
-  bh["lux"] = bh1750.readLightLevel();
-
-  tsl2561.getEvent(&l);
-  if (l.light >= 0) {
-    Serial.print("TSL 2561:\tLight = ");
-    Serial.print(l.light);
+    float bh1750_light = bh1750.readLightLevel();
+    Serial.print("BH 1750:\tLight = ");
+    Serial.print(bh1750_light);
     Serial.print(" lux");
     Serial.println("");
-    JsonObject tsl = doc.createNestedObject("tsl2561");
-    tsl["lux"] = l.light;
-  } else {
-    Serial.println("TSL 2561 read error");
-  }
+    JsonObject bh = doc.createNestedObject("bh1750");
+    bh["lux"] = bh1750_light;
 
-  ltr390.setMode(LTR390_MODE_ALS);
-  delay(200);
-  ltr390.readALS();
-  delay(50);
-  int als = ltr390.readALS();
-  Serial.print("LTR 390:\tLight = ");
-  Serial.print(calculate_ALS_Lux(als),2);
-  Serial.print(" lux");
-  ltr390.setMode(LTR390_MODE_UVS);
-  delay(200);
-  ltr390.readUVS();
-  delay(50);
-  int uv = ltr390.readUVS();
-  Serial.print(" \tUV Index = ");
-  Serial.print(calculate_UVS_Index(uv),2);
-  Serial.println("");
-  JsonObject ltr = doc.createNestedObject("ltr390");
-  ltr["lux"] = calculate_ALS_Lux(als);
-  ltr["UVI"] = calculate_UVS_Index(uv);
+    tsl2561.getEvent(&l);
+    if (l.light >= 0) {
+      Serial.print("TSL 2561:\tLight = ");
+      Serial.print(l.light);
+      Serial.print(" lux");
+      Serial.println("");
+      JsonObject tsl = doc.createNestedObject("tsl2561");
+      tsl["lux"] = l.light;
+    } else {
+      Serial.println("TSL 2561 read error");
+    }
 
-  if(digitalRead(4) == HIGH) // Preruseni - blesk, sum nebo ruseni detekovano
-  {
-    int hodnota = as3935.readInterruptReg(); 
-    
-    if(hodnota == NOISE_INT){
-      Serial.println("Detekovan sum!"); 
-      // Pokud preruseni casto způsobuje sum, odkomentujte radek nize
-      //lightning.setNoiseLevel(Hodnota); // hodnota od 1 do 7
-    }
-    else if(hodnota == DISTURBER_INT){
-      Serial.println("Detekovano ruseni!"); 
-      // Pokud prerusni casto zpusobuje ruseni, odkomentujte radek nize
-      //lightning.watchdogThreshold(Hodnota);  // hodnota od 1 do 10
- 
-      // Pokud vidite casto ruseni, muzete povolit dalsi filtraci
-      //lightning.maskDisturber(true); // hodnota true nebo false
-    }
-    else if(hodnota == LIGHTNING_INT){
-      Serial.println("Detekovan BLESK!"); 
- 
-      // Cteni odhahodave vzdalenosti blesku
-      byte vzdalenostBlesku = as3935.distanceToStorm(); 
-      Serial.print("Priblizne: "); 
-      Serial.print(vzdalenostBlesku); 
-      Serial.println("km daleko!"); 
- 
-      // Cteni odhadovane energie blesku
-      long energieBlesku = as3935.lightningEnergy(); 
-      Serial.print("Odhadovana energie blesku: "); 
-      Serial.println(energieBlesku); 
+    ltr390.setMode(LTR390_MODE_ALS);
+    delay(50);
+    float als = ltr390.readALS();
+    float ltr390_light = calculate_ALS_Lux(als);
+    Serial.print("LTR 390:\tLight = ");
+    Serial.print(ltr390_light, 2);
+    Serial.print(" lux");
+    ltr390.setMode(LTR390_MODE_UVS);
+    delay(50);
+    float uv = ltr390.readUVS();
+    float ltr390_uv = calculate_UVS_Index(uv);
+    Serial.print(" \tUV Index = ");
+    Serial.print(ltr390_uv, 2);
+    Serial.println("");
+    JsonObject ltr = doc.createNestedObject("ltr390");
+    ltr["lux"] = ltr390_light;
+    ltr["UVI"] = ltr390_uv;
+
+    if (client.connected()) {
+      mqtt_send(doc);
     }
   }
-  delay(100);
-
-  if (client.connected()) {
-    mqtt_send(doc);
-  }
-  delay(2000);
 }

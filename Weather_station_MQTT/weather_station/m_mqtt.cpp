@@ -1,4 +1,4 @@
-#define MQTT_BUFFER_SIZE 1024
+#define MQTT_BUFFER_SIZE 768
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
