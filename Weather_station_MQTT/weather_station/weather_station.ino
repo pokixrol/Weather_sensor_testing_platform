@@ -1,3 +1,4 @@
+#include <SparkFun_AS3935.h>
 #include <Adafruit_LTR390.h>
 #include <Adafruit_SHT4x.h>
 #include <Adafruit_BMP280.h>
@@ -11,6 +12,13 @@
 #include "secret.h"
 #include <Wire.h>
 
+#define AS3935_ADDR 0x03
+#define INDOOR 0x12 
+#define OUTDOOR 0x0E
+#define LIGHTNING_INT 0x08
+#define DISTURBER_INT 0x04
+#define NOISE_INT 0x01
+
 Adafruit_BME680 bme688(&Wire);
 BH1750 bh1750;
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
@@ -18,6 +26,7 @@ Adafruit_SHT4x sht45 = Adafruit_SHT4x();
 Adafruit_SHT4x sht40 = Adafruit_SHT4x();
 Adafruit_BMP280 bmp280(&Wire1);
 Adafruit_LTR390 ltr390 = Adafruit_LTR390();
+SparkFun_AS3935 as3935(AS3935_ADDR);
 
 float LTR390_Resolution(int resolution) {
   switch (resolution) {
@@ -66,8 +75,10 @@ void check_sensor(bool result, const char* name) {
 
 void setup() {
   Serial.begin(115200);
-
-  Wire.begin();
+  
+  pinMode(4, INPUT); 
+  
+  Wire.begin(21,22);
   Wire1.begin(19, 18);
 
   while (!Serial) {}
@@ -80,6 +91,7 @@ void setup() {
   check_sensor(sht40.begin(&Wire1), "SHT 40");
   check_sensor(bmp280.begin(0x77), "BMP 280");
   check_sensor(ltr390.begin(), "LTR 390");
+  check_sensor(as3935.begin(), "AS 3935");
 
   ltr390.setGain(LTR390_GAIN_3);
   ltr390.setResolution(LTR390_RESOLUTION_16BIT);
@@ -189,6 +201,40 @@ void loop() {
   JsonObject ltr = doc.createNestedObject("ltr390");
   ltr["lux"] = calculate_ALS_Lux(als);
   ltr["UVI"] = calculate_UVS_Index(uv);
+
+  if(digitalRead(4) == HIGH) // Preruseni - blesk, sum nebo ruseni detekovano
+  {
+    int hodnota = as3935.readInterruptReg(); 
+    
+    if(hodnota == NOISE_INT){
+      Serial.println("Detekovan sum!"); 
+      // Pokud preruseni casto způsobuje sum, odkomentujte radek nize
+      //lightning.setNoiseLevel(Hodnota); // hodnota od 1 do 7
+    }
+    else if(hodnota == DISTURBER_INT){
+      Serial.println("Detekovano ruseni!"); 
+      // Pokud prerusni casto zpusobuje ruseni, odkomentujte radek nize
+      //lightning.watchdogThreshold(Hodnota);  // hodnota od 1 do 10
+ 
+      // Pokud vidite casto ruseni, muzete povolit dalsi filtraci
+      //lightning.maskDisturber(true); // hodnota true nebo false
+    }
+    else if(hodnota == LIGHTNING_INT){
+      Serial.println("Detekovan BLESK!"); 
+ 
+      // Cteni odhahodave vzdalenosti blesku
+      byte vzdalenostBlesku = as3935.distanceToStorm(); 
+      Serial.print("Priblizne: "); 
+      Serial.print(vzdalenostBlesku); 
+      Serial.println("km daleko!"); 
+ 
+      // Cteni odhadovane energie blesku
+      long energieBlesku = as3935.lightningEnergy(); 
+      Serial.print("Odhadovana energie blesku: "); 
+      Serial.println(energieBlesku); 
+    }
+  }
+  delay(100);
 
   if (client.connected()) {
     mqtt_send(doc);

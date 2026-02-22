@@ -10,8 +10,8 @@
  
 SparkFun_AS3935 lightning(AS3935_ADDR);
  
-const int pinPreruseni = 4; // Interrupt pin
-int hodnota = 0; // prectena hodnota 
+const int pinPreruseni = 4; 
+int hodnota = 0;
  
 void setup() {
   // Interrupt pin pro detekci, HIGH = aktivni preruseni
@@ -20,9 +20,8 @@ void setup() {
   Serial.begin(115200); 
   Serial.println("AS3935 Inicializace"); 
  
-  Wire.begin(); // I2C inicializace
+  Wire.begin(21,22); 
  
-  // Inicialiazce detektoru blesků
   if( !lightning.begin() ) 
   { 
     Serial.println ("Problem s inicializaci. Zkontrolujte propojeni."); 
@@ -31,14 +30,13 @@ void setup() {
   else
     Serial.println("Detektor blesku pripraven");
  
-  // Odkomentujte v pripade, ze chcete pouzit detektor venku
   //lightning.setIndoorOutdoor(OUTDOOR);
 }
  
 void loop() {
   if(digitalRead(pinPreruseni) == HIGH) // Preruseni - blesk, sum nebo ruseni detekovano
   {
-    hodnota = lightning.readInterruptReg(); // kontrola, co aktivovalo interrupt
+    hodnota = lightning.readInterruptReg(); 
     
     if(hodnota == NOISE_INT){
       Serial.println("Detekovan sum!"); 
