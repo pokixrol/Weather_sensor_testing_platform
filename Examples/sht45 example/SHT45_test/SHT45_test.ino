@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include <ArtronShop_SHT45.h>
 
-ArtronShop_SHT45 sht45(&Wire, 0x44); // SHT45-AD1B => 0x44
+ArtronShop_SHT45 sht45(&Wire, 0x44);
 
 void setup() {
   Serial.begin(115200);

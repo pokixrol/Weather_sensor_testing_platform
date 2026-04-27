@@ -40,15 +40,12 @@ void loop() {
     
     if(hodnota == NOISE_INT){
       Serial.println("Detekovan sum!"); 
-      // Pokud preruseni casto způsobuje sum, odkomentujte radek nize
       //lightning.setNoiseLevel(Hodnota); // hodnota od 1 do 7
     }
     else if(hodnota == DISTURBER_INT){
       Serial.println("Detekovano ruseni!"); 
-      // Pokud prerusni casto zpusobuje ruseni, odkomentujte radek nize
       //lightning.watchdogThreshold(Hodnota);  // hodnota od 1 do 10
  
-      // Pokud vidite casto ruseni, muzete povolit dalsi filtraci
       //lightning.maskDisturber(true); // hodnota true nebo false
     }
     else if(hodnota == LIGHTNING_INT){
