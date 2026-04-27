@@ -1,3 +1,4 @@
+// Sensor handling libraries
 #include <Adafruit_BME680.h>
 #include <Adafruit_BMP280.h>
 #include <Adafruit_LTR390.h>
@@ -9,6 +10,7 @@
 
 #include "m_sensors.h"
 
+// Sensor objects
 Adafruit_BME680 bme688(&Wire);
 Adafruit_SHT4x sht45 = Adafruit_SHT4x();
 Adafruit_SHT4x sht40 = Adafruit_SHT4x();
@@ -40,13 +42,19 @@ float LTR390_gain(int gain) {
   return 1;
 }
 
+// Calibration factor for LTR390 als
+float ltr390_calibrationFactor = 0.4; 
+
+// Calculate ambient light in lux
 float calculate_ALS_Lux(int als) {
   float gain = LTR390_gain(ltr390.getGain());
   float resolution = LTR390_Resolution(ltr390.getResolution());
-  float wfac = 1.0;
-  return (0.6 * als) / (gain * (resolution / 100.0)) * wfac;
+  float rawLux = (als) / (gain * (resolution / 100.0));
+
+  return rawLux * ltr390_calibrationFactor;
 }
 
+// Calculate UV index from raw sensor data
 float calculate_UVS_Index(int uv) {
   float gain = LTR390_gain(ltr390.getGain());
   float resolution = LTR390_Resolution(ltr390.getResolution());
@@ -55,6 +63,7 @@ float calculate_UVS_Index(int uv) {
   return (uv / sensitivity) * wfac;
 }
 
+// Check if sensor initialized correctly
 void check_sensor(bool result, const char* name) {
   if (!result) {
     Serial.print(name);
@@ -64,9 +73,11 @@ void check_sensor(bool result, const char* name) {
 
 void sensors_init() {
 
+ // Initialize I2C buses - two because of address conflict
   Wire.begin(21, 22);
-  Wire1.begin(19, 18);
+  Wire1.begin(19, 18); 
 
+  // Initialize sensors and check availability
   check_sensor(bme688.begin(0x76), "BME688");
   check_sensor(sht45.begin(&Wire), "SHT45");
   check_sensor(sht40.begin(&Wire1), "SHT40");
@@ -75,10 +86,12 @@ void sensors_init() {
   check_sensor(tsl2561.begin(), "TSL2561");
   check_sensor(ltr390.begin(), "LTR390");
 
+  // Configure LTR390 sensor
   ltr390.setGain(LTR390_GAIN_3);
   ltr390.setResolution(LTR390_RESOLUTION_16BIT);
 }
 
+// Read sensor data and store into JSON
 void sensors_read(JsonDocument& doc) {
   sensors_event_t l, h1, t1, h2, t2;
 
@@ -145,7 +158,7 @@ void sensors_read(JsonDocument& doc) {
   Serial.print(" lux");
   Serial.println("");
   JsonObject bh = doc.createNestedObject("bh1750");
-  bh["lux"] = bh1750.readLightLevel();
+  bh["lux"] = bh1750_light;
 
   tsl2561.getEvent(&l);
   if (l.light >= 0) {
@@ -160,14 +173,14 @@ void sensors_read(JsonDocument& doc) {
   }
 
   ltr390.setMode(LTR390_MODE_ALS);
-  delay(50);
+  delay(100);
   float als = ltr390.readALS();
   float ltr390_light = calculate_ALS_Lux(als);
   Serial.print("LTR 390:\tLight = ");
   Serial.print(ltr390_light, 2);
   Serial.print(" lux");
   ltr390.setMode(LTR390_MODE_UVS);
-  delay(50);
+  delay(100);
   float uv = ltr390.readUVS();
   float ltr390_uv = calculate_UVS_Index(uv);
   Serial.print(" \tUV Index = ");
